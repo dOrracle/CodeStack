@@ -1,0 +1,28 @@
+{
+  "name": "codestack",
+  "version": "1.0.0",
+  "description": "A desktop application for viewing multiple code files at once",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "author": "Jason",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.jason.codestack",
+    "productName": "CodeStack",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.png"
+    }
+  }
+}

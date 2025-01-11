@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Code Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.dragging {
+            border-color: #007AFF;
+            background-color: rgba(0, 122, 255, 0.1);
+        }
+        .file-container {
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .file-header {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-weight: bold;
+        }
+        .file-content {
+            padding: 15px;
+            margin: 0;
+            overflow-x: auto;
+            background-color: #fff;
+            font-family: 'Monaco', 'Menlo', 'Courier New', Courier, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre;
+        }
+        .copy-btn {
+            float: right;
+            padding: 5px 10px;
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .copy-btn:hover {
+            background-color: #0056b3;
+        }
+        .copy-all-btn {
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="drop-zone" class="drop-zone">
+        Drop files here or click to select
+    </div>
+    <button id="copyAllBtn" class="copy-all-btn" style="display: none;">
+        Copy All Code
+    </button>
+    <div id="files-container"></div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const filesContainer = document.getElementById('files-container');
+        const copyAllBtn = document.getElementById('copyAllBtn');
+        let allFiles = [];
+
+        // Handle drag and drop events
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dragging');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragging');
+        });
+
+        dropZone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragging');
+
+            const items = Array.from(e.dataTransfer.items);
+            await handleItems(items);
+        });
+
+        // Click to select files
+        dropZone.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = true;
+            input.onchange = async (e) => {
+                const files = Array.from(e.target.files);
+                await handleFiles(files);
+            };
+            input.click();
+        });
+
+        async function handleItems(items) {
+            const filePromises = items
+                .filter(item => item.kind === 'file')
+                .map(item => handleEntry(item.webkitGetAsEntry()));
+            
+            await Promise.all(filePromises);
+            updateDisplay();
+        }
+
+        async function handleEntry(entry, path = '') {
+            if (entry.isFile) {
+                const file = await new Promise(resolve => entry.file(resolve));
+                await handleFiles([file], path);
+            } else if (entry.isDirectory) {
+                const dirReader = entry.createReader();
+                const entries = await new Promise(resolve => {
+                    dirReader.readEntries(resolve);
+                });
+                
+                for (const entry of entries) {
+                    await handleEntry(entry, path + entry.name + '/');
+                }
+            }
+        }
+
+        async function handleFiles(files, path = '') {
+            for (const file of files) {
+                const content = await readFile(file);
+                allFiles.push({
+                    name: path + file.name,
+                    content: content
+                });
+            }
+            updateDisplay();
+        }
+
+        function readFile(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsText(file);
+            });
+        }
+
+        function updateDisplay() {
+            filesContainer.innerHTML = '';
+            copyAllBtn.style.display = allFiles.length ? 'block' : 'none';
+
+            allFiles.forEach((file, index) => {
+                const fileContainer = document.createElement('div');
+                fileContainer.className = 'file-container';
+
+                const header = document.createElement('div');
+                header.className = 'file-header';
+                
+                const fileName = document.createElement('span');
+                fileName.textContent = file.name;
+                
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.textContent = 'Copy';
+                copyBtn.onclick = () => copyToClipboard(file.content);
+
+                header.appendChild(fileName);
+                header.appendChild(copyBtn);
+
+                const content = document.createElement('pre');
+                content.className = 'file-content';
+                content.textContent = file.content;
+
+                fileContainer.appendChild(header);
+                fileContainer.appendChild(content);
+                filesContainer.appendChild(fileContainer);
+            });
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+        }
+
+        copyAllBtn.onclick = () => {
+            const allCode = allFiles
+                .map(file => `// ${file.name}\n${file.content}\n\n`)
+                .join('');
+            copyToClipboard(allCode);
+        };
+    </script>
+</body>
+</html>
